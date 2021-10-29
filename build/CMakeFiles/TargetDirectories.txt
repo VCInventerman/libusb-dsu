@@ -1,0 +1,5 @@
+/Users/3121287/dev/libusb-dsu/build/CMakeFiles/rebuild_cache.dir
+/Users/3121287/dev/libusb-dsu/build/CMakeFiles/edit_cache.dir
+/Users/3121287/dev/libusb-dsu/build/CMakeFiles/package_source.dir
+/Users/3121287/dev/libusb-dsu/build/CMakeFiles/package.dir
+/Users/3121287/dev/libusb-dsu/build/CMakeFiles/libusb-dsu.dir
