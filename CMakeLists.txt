@@ -21,9 +21,9 @@ if (APPLE)
 	include_directories(libusb-dsu PUBLIC ${HOME}/usr/local/include) # homebrew
 endif()
 
-if (CMAKE_CXX_COMPILER_ID STREQUAL "Clang")
+if (MSVC AND CMAKE_CXX_COMPILER_ID STREQUAL "Clang")
 	SET(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} /clang:-std=c++20")
-elseif (CMAKE_CXX_COMPILER_ID STREQUAL "MSVC")
+elseif (MSVC)
 	SET(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} /std:c++20")
 endif ()
 
