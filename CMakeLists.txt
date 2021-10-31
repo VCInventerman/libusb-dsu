@@ -19,13 +19,16 @@ endif()
 
 if (APPLE)
 	include_directories(libusb-dsu PUBLIC ${HOME}/usr/local/include) # homebrew
+	SET(ENV{OPENSSL_ROOT_DIR} /Users/3121287/usr/local/opt/openssl)
 endif()
 
 if (MSVC AND CMAKE_CXX_COMPILER_ID STREQUAL "Clang")
-	SET(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} /clang:-std=c++20")
+	SET(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} /clang:-std=c++20") # clang-cl
 elseif (MSVC)
-	SET(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} /std:c++20")
-endif ()
+	SET(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} /std:c++20") # MSVC
+else ()
+	SET(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -std=c++20") # GCC and clang
+endif()
 
 
 #SET(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} /P")
@@ -41,13 +44,19 @@ target_link_libraries(libusb-dsu PRIVATE OpenSSL::SSL)
 set(Boost_USE_STATIC_LIBS OFF) 
 set(Boost_USE_MULTITHREADED ON)  
 set(Boost_USE_STATIC_RUNTIME OFF) 
-find_package(Boost 1.77.0 COMPONENTS log_setup log thread atomic chrono filesystem) 
+find_package(Boost 1.75.0 COMPONENTS log_setup log thread atomic chrono filesystem) 
 include_directories(${Boost_INCLUDE_DIRS}) 
 target_link_libraries(libusb-dsu PRIVATE ${Boost_LIBRARIES})		
 
-find_package(libusb CONFIG REQUIRED)
-target_include_directories(libusb-dsu PRIVATE ${LIBUSB_INCLUDE_DIRS})
-target_link_libraries(libusb-dsu PRIVATE ${LIBUSB_LIBRARIES})
+
+find_package(libusb CONFIG)
+if (libusb_FOUND)
+	target_include_directories(libusb-dsu PRIVATE ${LIBUSB_INCLUDE_DIRS})
+	target_link_libraries(libusb-dsu PRIVATE ${LIBUSB_LIBRARIES})
+else ()
+	target_include_directories(libusb-dsu PRIVATE ${HOME}/usr/local/opt/libusb/include)
+	target_link_libraries(libusb-dsu PRIVATE ${HOME}/usr/local/opt/libusb/lib/libusb-1.0.0.dylib)
+endif ()
 
 target_include_directories(libusb-dsu PUBLIC ${HOME}/dev/Evergreen/evglib/include)
 

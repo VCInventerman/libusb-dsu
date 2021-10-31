@@ -1,7 +1,0 @@
-[
-{
-  "directory": "/Users/3121287/dev/libusb-dsu/build",
-  "command": "/usr/bin/clang++  -I/Users/3121287/usr/local/include -I/Users/3121287/dev/evergreen/evglib/include -g -isysroot /Library/Developer/CommandLineTools/SDKs/MacOSX11.3.sdk -std=gnu++2a -o CMakeFiles/libusb-dsu.dir/main.cpp.o -c /Users/3121287/dev/libusb-dsu/main.cpp",
-  "file": "/Users/3121287/dev/libusb-dsu/main.cpp"
-}
-]
