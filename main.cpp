@@ -116,7 +116,7 @@ void runEventLoop(std::vector<Device>* devicesPtr, libusb_context* const context
 
 int main(int, char**)
 {
-    std::cout << "Hello, world!\n";
+    std::cout << "Welcome to libusb-dsu! Try help\n";
     
     libusb_context* context = nullptr;
     libusb_device** deviceList = nullptr;
@@ -135,8 +135,6 @@ int main(int, char**)
     for (auto i : Range(count))
     {
         Device& device = devices.emplace_back(deviceList[i]);
-
-        std::cout << f("Vendor:Device:Serial ", device.desc.idVendor, ":", device.desc.idProduct, ":", device.serialName, "\n");
     }
 
     libusb_free_device_list(deviceList, 1);
@@ -162,6 +160,47 @@ int main(int, char**)
         { std::cout << "Of course this isn't implemented\n"; return CommandEval::ReturnCode::Success;});
     eval.addCommand("exit", [](std::string_view) 
         { programActive = false; return CommandEval::ReturnCode::Success; });
+    eval.addCommand("list", [&devices](std::string_view)
+    {
+        for (auto& i : devices)
+        {
+            std::cout << f("Vendor:Device:Serial ", i.desc.idVendor, ":", i.desc.idProduct, ":", i.serialName, "\n");
+        }
+        return CommandEval::ReturnCode::Success;
+    });
+    eval.addCommand("send", [&devices](std::string_view command)
+    {
+        if (std::count(command.cbegin(), command.cend(), ' ') < 2) { return CommandEval::ReturnCode::InvalidInput; }
+
+        std::string_view deviceName = command.substr(command.find(' '), findNthChar(command, ' ', 1));
+
+        uint8_t bytes[command.size()];
+        Size bytesIndex = 0;
+
+        // Process rest of string
+        for (Size i = findNthChar(command, ' ', 1); i < command.size(); i++)
+        {
+            char digit = command[i];
+            
+            if (!std::isxdigit(digit))
+            {
+                continue;
+            }
+
+            if (std::isdigit(digit))
+            {
+                bytes[bytesIndex] = (digit - 0x30) << (bytesIndex % 2);
+                bytesIndex++;
+            }
+            else
+            {
+                digit &= ~(0x20); // Force lowercase letters
+                digits[]
+            }
+        }
+
+        return CommandEval::ReturnCode::Success;
+    });
 
 
     std::string currentCommand;
@@ -175,6 +214,10 @@ int main(int, char**)
         if (code == CommandEval::ReturnCode::CommandNotFound)
         {
             std::cout << "Command not found! Try /help\n";
+        }
+        else if (code == CommandEval::ReturnCode::InvalidInput)
+        {
+            std::cout << "Invalid input.\n";
         }
     }
 
