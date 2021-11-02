@@ -4,17 +4,18 @@
 #include <string>
 #include <string_view>
 
+// Starts at 0
 template <typename ContainerT, typename ElmT, typename CompT = std::equal_to<ElmT>>
-Size findNthChar(const ContainerT& container, const ElmT elm, Size target)
+Size findNthChar(const ContainerT& container, const ElmT elm, const Size target)
 {
     CompT comp;
     Size found = 0;
 
-    for (ContainerT::const_iterator i = container.cbegin(); i != container.cend(); i++)
+    for (typename ContainerT::const_iterator i = container.cbegin(); i != container.cend(); i++)
     {
-        if (comp(*i, elm) && (++found == target))
+        if (comp(*i, elm) && ((++found - 1) == target))
         {
-            return std::distance(i, begin);
+            return std::distance(container.cbegin(), i);
         }
     }
 

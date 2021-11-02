@@ -86,6 +86,7 @@
         "utility": "cpp",
         "valarray": "cpp",
         "variant": "cpp",
-        "vector": "cpp"
+        "vector": "cpp",
+        "__functional_03": "cpp"
     }
 }

@@ -126,7 +126,7 @@ int main(int, char**)
     returnCode = libusb_init(&context);
     if (returnCode) { std::cout << "libusb error " << __LINE__ << " : " << libusb_error_name(returnCode) << '\n'; }
 
-    libusb_set_debug(context, 3);
+    libusb_set_option(context, LIBUSB_OPTION_LOG_LEVEL, LIBUSB_LOG_LEVEL_DEBUG);
 
     int count = libusb_get_device_list(context, &deviceList);
     std::cout << "Found " << count << " devices.\n";
@@ -162,26 +162,49 @@ int main(int, char**)
         { programActive = false; return CommandEval::ReturnCode::Success; });
     eval.addCommand("list", [&devices](std::string_view)
     {
-        for (auto& i : devices)
+        for (auto i = devices.cbegin(); i != devices.cend(); i++)
         {
-            std::cout << f("Vendor:Device:Serial ", i.desc.idVendor, ":", i.desc.idProduct, ":", i.serialName, "\n");
+            std::cout << f((int)std::distance(devices.cbegin(), i), ": Vendor:Device:Serial ", 
+                i->desc.idVendor, ":", i->desc.idProduct, ":", i->serialName, "\n");
         }
         return CommandEval::ReturnCode::Success;
     });
+    eval.addCommand("reset", [&devices](std::string_view command)
+    {
+        if (std::count(command.cbegin(), command.cend(), ' ') < 1) { return CommandEval::ReturnCode::InvalidInput; }
+
+        int device = -2;
+        auto res = std::from_chars(command.data() + command.find(' ') + 1, 
+            command.data() + command.size(), 
+            device);
+
+        libusb_reset_device(devices[device].handle);
+    });
+    
     eval.addCommand("send", [&devices](std::string_view command)
     {
         if (std::count(command.cbegin(), command.cend(), ' ') < 2) { return CommandEval::ReturnCode::InvalidInput; }
 
-        std::string_view deviceName = command.substr(command.find(' '), findNthChar(command, ' ', 1));
+        int device = -2;
+        auto res = std::from_chars(command.data() + command.find(' ') + 1, 
+            command.data() + command.size(), 
+            device);
 
-        uint8_t bytes[command.size()];
+        if (res.ec != std::errc() || device > devices.size())
+        {
+            std::cout << "Invalid device name!\n";
+            return CommandEval::ReturnCode::InvalidInput;
+        } 
+
+        uint8_t bytes[command.size() / 2]; // Rough upper bound
+        memset(bytes, 0, command.size());
         Size bytesIndex = 0;
 
         // Process rest of string
         for (Size i = findNthChar(command, ' ', 1); i < command.size(); i++)
         {
             char digit = command[i];
-            
+
             if (!std::isxdigit(digit))
             {
                 continue;
@@ -189,15 +212,24 @@ int main(int, char**)
 
             if (std::isdigit(digit))
             {
-                bytes[bytesIndex] = (digit - 0x30) << (bytesIndex % 2);
-                bytesIndex++;
+                bytes[bytesIndex / 2] |= (digit - 0x30) << (((bytesIndex % 2) ^ 0x1) * 4);
             }
             else
             {
-                digit &= ~(0x20); // Force lowercase letters
-                digits[]
+                digit |= 0x20; // Force lowercase letters
+                bytes[bytesIndex / 2] |= (digit - 0x57) << (((bytesIndex % 2) ^ 0x1) * 4);
             }
+
+            bytesIndex++;
         }
+
+        //Device& device = devices[]
+
+        //libusb_fill_interrupt_transfer(i.iTransfer, i.handle, (0x82 | LIBUSB_ENDPOINT_IN), 
+        //    (unsigned char*)(i.iBuf), Device::IBUF_SIZE,
+        //    Device::transferCb, (void*)&i, 0);
+
+        //libusb_submit_transfer(i.iTransfer);
 
         return CommandEval::ReturnCode::Success;
     });
@@ -220,6 +252,7 @@ int main(int, char**)
             std::cout << "Invalid input.\n";
         }
     }
+
 
     std::this_thread::sleep_for(std::chrono::milliseconds(500)); // Try and give event handler a chance to clean up
     libusb_exit(context);
