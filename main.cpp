@@ -164,8 +164,8 @@ int main(int, char**)
     {
         for (auto i = devices.cbegin(); i != devices.cend(); i++)
         {
-            std::cout << f((int)std::distance(devices.cbegin(), i), ": Vendor:Device:Serial ", 
-                i->desc.idVendor, ":", i->desc.idProduct, ":", i->serialName, "\n");
+            printf("%lu: Vendor:Device:Serial %d:%d:%s\n", 
+                std::distance(devices.cbegin(), i), i->desc.idVendor, i->desc.idProduct, i->serialName);
         }
         return CommandEval::ReturnCode::Success;
     });
@@ -194,7 +194,7 @@ int main(int, char**)
         {
             std::cout << "Invalid device name!\n";
             return CommandEval::ReturnCode::InvalidInput;
-        } 
+        }
 
         uint8_t bytes[command.size() / 2]; // Rough upper bound
         memset(bytes, 0, command.size());
