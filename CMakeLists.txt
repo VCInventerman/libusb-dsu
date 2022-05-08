@@ -3,8 +3,8 @@ set(CMAKE_VERBOSE_MAKEFILE ON)
 cmake_minimum_required(VERSION 3.0.0)
 project(libusb-dsu VERSION 0.1.0)
 
-#set(CMAKE_CXX_STANDARD 20)
-#set(CMAKE_CXX_STANDARD_REQUIRED True)
+set(CMAKE_CXX_STANDARD 20)
+set(CMAKE_CXX_STANDARD_REQUIRED True)
 
 if(DEFINED ENV{HOME})
 	set(HOME $ENV{HOME})
@@ -22,13 +22,6 @@ if (APPLE)
 	SET(ENV{OPENSSL_ROOT_DIR} /Users/3121287/usr/local/opt/openssl)
 endif()
 
-if (MSVC AND CMAKE_CXX_COMPILER_ID STREQUAL "Clang")
-	SET(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} /clang:-std=c++20") # clang-cl
-elseif (MSVC)
-	SET(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} /std:c++20") # MSVC
-else ()
-	SET(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -std=c++20") # GCC and clang
-endif()
 
 
 #SET(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} /P")
@@ -41,24 +34,27 @@ add_executable(libusb-dsu main.cpp)
 find_package(OpenSSL REQUIRED)
 target_link_libraries(libusb-dsu PRIVATE OpenSSL::SSL)
 
-set(Boost_USE_STATIC_LIBS OFF) 
-set(Boost_USE_MULTITHREADED ON)  
-set(Boost_USE_STATIC_RUNTIME OFF) 
-find_package(Boost 1.75.0 COMPONENTS log_setup log thread atomic chrono filesystem) 
-include_directories(${Boost_INCLUDE_DIRS}) 
-target_link_libraries(libusb-dsu PRIVATE ${Boost_LIBRARIES})		
+
+#find_package(libusb CONFIG)
+#if (libusb_FOUND)
+#	target_include_directories(libusb-dsu PRIVATE ${LIBUSB_INCLUDE_DIRS})
+#	target_link_libraries(libusb-dsu PRIVATE ${LIBUSB_LIBRARIES})
+#else ()
+#	target_include_directories(libusb-dsu PRIVATE ${HOME}/usr/local/opt/libusb/include)
+#	target_link_libraries(libusb-dsu PRIVATE ${HOME}/usr/local/opt/libusb/lib/libusb-1.0.0.dylib)
+#endif ()
 
 
-find_package(libusb CONFIG)
-if (libusb_FOUND)
-	target_include_directories(libusb-dsu PRIVATE ${LIBUSB_INCLUDE_DIRS})
-	target_link_libraries(libusb-dsu PRIVATE ${LIBUSB_LIBRARIES})
-else ()
-	target_include_directories(libusb-dsu PRIVATE ${HOME}/usr/local/opt/libusb/include)
-	target_link_libraries(libusb-dsu PRIVATE ${HOME}/usr/local/opt/libusb/lib/libusb-1.0.0.dylib)
-endif ()
 
-target_include_directories(libusb-dsu PUBLIC ${HOME}/dev/Evergreen/evglib/include)
+set(BUILD_SHARED_LIBS FALSE) # HIDAPI as static library on all platforms
+set(HIDAPI_BUILD_HIDTEST TRUE)
+add_subdirectory(deps/hidapi)
+target_link_libraries(libusb-dsu PRIVATE hidapi::hidapi)
+
+
+find_package(libusb CONFIG REQUIRED)
+target_include_directories(libusb-dsu PRIVATE ${LIBUSB_INCLUDE_DIRS})
+target_link_libraries(libusb-dsu PRIVATE ${LIBUSB_LIBRARIES})
 
 
 

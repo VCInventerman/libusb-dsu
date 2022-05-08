@@ -3,13 +3,14 @@
 #include <map>
 #include <string>
 #include <string_view>
+#include <functional>
 
 // Starts at 0
 template <typename ContainerT, typename ElmT, typename CompT = std::equal_to<ElmT>>
-Size findNthChar(const ContainerT& container, const ElmT elm, const Size target)
+size_t findNthChar(const ContainerT& container, const ElmT elm, const size_t target)
 {
     CompT comp;
-    Size found = 0;
+    size_t found = 0;
 
     for (typename ContainerT::const_iterator i = container.cbegin(); i != container.cend(); i++)
     {

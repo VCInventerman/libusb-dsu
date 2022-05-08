@@ -1,6 +1,6 @@
-#define EVG_LIB_BOOST
-#include <evglib>
-using namespace evg;
+#include <atomic>
+#include <thread>
+#include <iostream>
 
 #ifdef EVG_PLATFORM_WIN
 #pragma warning( push )
@@ -11,148 +11,88 @@ using namespace evg;
 #include <libusb-1.0/libusb.h>
 #endif
 
-#include "CommandEval.h"
+#include <hidapi.h>
 
-unsigned char packetStartOneS[] = { 0x05, 0x20, 0x00, 0x01, 0x00 };
-unsigned char packetCrash[] = { 0x01, 0x20, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0E };
-unsigned char packetShortRumble[] = { 0x09, 0x08, 0x00, 0x02, 0x00, 0x0f, 0x04, 0x04 };
+#include "CommandEval.h"
 
 std::atomic_bool programActive = true;
 
-
-class Device
-{
-public:
-    using This = Device;
-
-
-    constexpr static Size MAX_SERIALNAME_SIZE = 100;
-    constexpr static Size IBUF_SIZE = 256;
-
-    libusb_device* device = nullptr;
-    libusb_device_handle* handle = nullptr;
-    libusb_device_descriptor desc = {};
-
-    char serialName[MAX_SERIALNAME_SIZE];
-    Size serialNameLength = 0;
-
-    libusb_transfer* iTransfer = {};
-    char iBuf[IBUF_SIZE];
-    bool iTransferActive = false;
-
-
-
-    Device(libusb_device* device)
-    {
-        constexpr auto check = [](const int ec)
-        {
-            if (ec)
-            {
-                throw std::runtime_error(libusb_error_name(ec));
-            }
-        };
-
-        check(libusb_open(device, &handle));
-
-        check(libusb_get_device_descriptor(device, &desc));
-
-        serialName[0] = '\0';
-        serialNameLength = libusb_get_string_descriptor_ascii(handle, desc.iSerialNumber, 
-            (unsigned char*)serialName, MAX_SERIALNAME_SIZE);
-
-        int currentConfig = -2;
-        libusb_get_configuration(handle, &currentConfig);
-        std::cout << "Current config: " << currentConfig << '\n';
-
-        libusb_claim_interface(handle, 0);
-
-        std::cout << "Active: " << libusb_kernel_driver_active(handle, 0) << '\n';
-    }
-
-    static void transferCb(libusb_transfer* transfer)
-    {
-        This& t = *(This*)(transfer->user_data);
-        t.iTransferActive = false;
-
-        static int count = 0;
-        std::cout << f("Got transfer ", count, "\n");
-
-        
-    }
-
-    ~Device()
-    {
-        libusb_release_interface(handle, 0);
-        libusb_close(handle);
-    }
-};
-
-void runEventLoop(std::vector<Device>* devicesPtr, libusb_context* const context)
-{
-    std::vector<Device> devices = *devicesPtr;
-
-    for (auto& i : devices)
-    {
-        i.iTransfer = libusb_alloc_transfer(0);
-    }
-
-    while (programActive)
-    {
-        for (auto& i : devices)
-        {
-            if (i.iTransferActive)
-            {
-                libusb_fill_interrupt_transfer(i.iTransfer, i.handle, (0x82 | LIBUSB_ENDPOINT_IN), 
-                    (unsigned char*)(i.iBuf), Device::IBUF_SIZE,
-                    Device::transferCb, (void*)&i, 0);
-
-                libusb_submit_transfer(i.iTransfer);
-            }
-        }
-
-        libusb_handle_events(context);
-    }
-}
-
 int main(int, char**)
 {
+    int res;
+    unsigned char buf[256];
+    #define MAX_STR 255
+    wchar_t wstr[MAX_STR];
+
     std::cout << "Welcome to libusb-dsu! Try help\n";
+
+    if (hid_init())
+        return -1;
+
+    hid_device* handle;
+    handle = hid_open(0x0738, 0x4161, NULL);
+    if (!handle) {
+        printf("unable to open device\n");
+        return 1;
+    }
     
-    libusb_context* context = nullptr;
-    libusb_device** deviceList = nullptr;
-    std::vector<Device> devices;
-    int returnCode = 0;
+    hid_set_nonblocking(handle, 1);
 
-    returnCode = libusb_init(&context);
-    if (returnCode) { std::cout << "libusb error " << __LINE__ << " : " << libusb_error_name(returnCode) << '\n'; }
 
-    libusb_set_option(context, LIBUSB_OPTION_LOG_LEVEL, LIBUSB_LOG_LEVEL_DEBUG);
+    // Read the Manufacturer String
+    wstr[0] = 0x0000;
+    res = hid_get_manufacturer_string(handle, wstr, MAX_STR);
+    if (res < 0)
+        printf("Unable to read manufacturer string\n");
+    printf("Manufacturer String: %ls\n", wstr);
 
-    int count = libusb_get_device_list(context, &deviceList);
-    std::cout << "Found " << count << " devices.\n";
+    // Read the Product String
+    wstr[0] = 0x0000;
+    res = hid_get_product_string(handle, wstr, MAX_STR);
+    if (res < 0)
+        printf("Unable to read product string\n");
+    printf("Product String: %ls\n", wstr);
 
-    // Connect devices
-    for (auto i : Range(count))
-    {
-        Device& device = devices.emplace_back(deviceList[i]);
+    // Read the Serial Number String
+    wstr[0] = 0x0000;
+    res = hid_get_serial_number_string(handle, wstr, MAX_STR);
+    if (res < 0)
+        printf("Unable to read serial number string\n");
+    printf("Serial Number String: (%d) %ls", wstr[0], wstr);
+    printf("\n");
+
+    // Read Indexed String 1
+    wstr[0] = 0x0000;
+    res = hid_get_indexed_string(handle, 1, wstr, MAX_STR);
+    if (res < 0)
+        printf("Unable to read indexed string 1\n");
+    printf("Indexed String 1: %ls\n", wstr);
+
+
+
+
+    res = 0;
+    int i = 0;
+    while (res == 0) {
+        res = hid_read(handle, buf, sizeof(buf));
+        if (res == 0)
+            printf("waiting...\n");
+        if (res < 0)
+            printf("Unable to read()\n");
+#ifdef _WIN32
+        std::this_thread::sleep_for(std::chrono::milliseconds(500));
+#else
+        usleep(500 * 1000);
+#endif
     }
 
-    libusb_free_device_list(deviceList, 1);
+    printf("Data read:\n   ");
+    // Print out the returned buffer.
+    for (i = 0; i < res; i++)
+        printf("%02x ", (unsigned int)buf[i]);
+    printf("\n");
 
 
-    int actual = -2;
-
-    //libusb_bulk_transfer(devices[0].handle, (1 | LIBUSB_ENDPOINT_OUT), rumblePacket, sizeof(rumblePacket), &actual, 0);
-        
-    //libusb_interrupt_transfer(devices[0].handle, (0x02 | LIBUSB_ENDPOINT_OUT), rumblePacket, sizeof(rumblePacket), &actual, 100);
-    //libusb_interrupt_transfer(devices[0].handle, (0x02 | LIBUSB_ENDPOINT_OUT), packetStartOneS, sizeof(packetStartOneS), &actual, 0);
-    //std::cout << "Data sent size: " << actual << '\n';
-
-    //libusb_interrupt_transfer(devices[0].handle, (0x02 | LIBUSB_ENDPOINT_OUT), packetShortRumble, sizeof(packetShortRumble), &actual, 0);
-    //std::cout << "Data sent size: " << actual << '\n';
-
-
-    std::thread eventLoop(runEventLoop, &devices, context);
 
 
     CommandEval eval;
@@ -160,79 +100,6 @@ int main(int, char**)
         { std::cout << "Of course this isn't implemented\n"; return CommandEval::ReturnCode::Success;});
     eval.addCommand("exit", [](std::string_view) 
         { programActive = false; return CommandEval::ReturnCode::Success; });
-    eval.addCommand("list", [&devices](std::string_view)
-    {
-        for (auto i = devices.cbegin(); i != devices.cend(); i++)
-        {
-            printf("%lu: Vendor:Device:Serial %d:%d:%s\n", 
-                std::distance(devices.cbegin(), i), i->desc.idVendor, i->desc.idProduct, i->serialName);
-        }
-        return CommandEval::ReturnCode::Success;
-    });
-    eval.addCommand("reset", [&devices](std::string_view command)
-    {
-        if (std::count(command.cbegin(), command.cend(), ' ') < 1) { return CommandEval::ReturnCode::InvalidInput; }
-
-        int device = -2;
-        auto res = std::from_chars(command.data() + command.find(' ') + 1, 
-            command.data() + command.size(), 
-            device);
-
-        libusb_reset_device(devices[device].handle);
-    });
-    
-    eval.addCommand("send", [&devices](std::string_view command)
-    {
-        if (std::count(command.cbegin(), command.cend(), ' ') < 2) { return CommandEval::ReturnCode::InvalidInput; }
-
-        int device = -2;
-        auto res = std::from_chars(command.data() + command.find(' ') + 1, 
-            command.data() + command.size(), 
-            device);
-
-        if (res.ec != std::errc() || device > devices.size())
-        {
-            std::cout << "Invalid device name!\n";
-            return CommandEval::ReturnCode::InvalidInput;
-        }
-
-        uint8_t bytes[command.size() / 2]; // Rough upper bound
-        memset(bytes, 0, command.size());
-        Size bytesIndex = 0;
-
-        // Process rest of string
-        for (Size i = findNthChar(command, ' ', 1); i < command.size(); i++)
-        {
-            char digit = command[i];
-
-            if (!std::isxdigit(digit))
-            {
-                continue;
-            }
-
-            if (std::isdigit(digit))
-            {
-                bytes[bytesIndex / 2] |= (digit - 0x30) << (((bytesIndex % 2) ^ 0x1) * 4);
-            }
-            else
-            {
-                digit |= 0x20; // Force lowercase letters
-                bytes[bytesIndex / 2] |= (digit - 0x57) << (((bytesIndex % 2) ^ 0x1) * 4);
-            }
-
-            bytesIndex++;
-        }
-
-        //Device& device = devices[]
-
-        //libusb_fill_interrupt_transfer(i.iTransfer, i.handle, (0x82 | LIBUSB_ENDPOINT_IN), 
-        //    (unsigned char*)(i.iBuf), Device::IBUF_SIZE,
-        //    Device::transferCb, (void*)&i, 0);
-
-        //libusb_submit_transfer(i.iTransfer);
-
-        return CommandEval::ReturnCode::Success;
-    });
 
 
     std::string currentCommand;
@@ -255,6 +122,6 @@ int main(int, char**)
 
 
     std::this_thread::sleep_for(std::chrono::milliseconds(500)); // Try and give event handler a chance to clean up
-    libusb_exit(context);
+    hid_exit();
     exit(0);
 }
