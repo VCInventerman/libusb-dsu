@@ -56,6 +56,8 @@ find_package(libusb CONFIG REQUIRED)
 target_include_directories(libusb-dsu PRIVATE ${LIBUSB_INCLUDE_DIRS})
 target_link_libraries(libusb-dsu PRIVATE ${LIBUSB_LIBRARIES})
 
+find_package(spdlog CONFIG REQUIRED)
+target_link_libraries(libusb-dsu PRIVATE spdlog::spdlog spdlog::spdlog_header_only)
 
 
 #SET(CMAKE_EXE_LINKER_FLAGS  "${CMAKE_EXE_LINKER_FLAGS} /NODEFAULTLIB:"libcmt.lib" /NODEFAULTLIB:"libcmtd.lib"")
